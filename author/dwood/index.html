@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>MRN-Code</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MRN-Code">
+<meta property="og:url" content="https://MRN-Code.github.io/author/dwood/index.html">
+<meta property="og:site_name" content="MRN-Code">
+<meta property="og:description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MRN-Code">
+<meta name="twitter:description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
+  
+    <link rel="alternative" href="/atom.xml" title="MRN-Code" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.png">
+  
+  <link href="//fonts.googleapis.com/css?family=Inconsolata:400,700|Open+Sans:700,400" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css">
+  
+
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <div id="header">
+  <div id="header-outer" class="outer">
+    <div id="header-inner" class="inner">
+      <div id="header-title">
+        <h1 id="logo-wrap">
+          <a href="/" id="logo">MRN-Code
+          
+              <span id="subtitle">Technical musings from the MRN NI team</span>
+          
+          </a>
+        </h1>
+      </div>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://MRN-Code.github.io"></form>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-Monitoring-PostgreSQL-Replication-Lag-with-Monit" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" class="article-date">
+  <time datetime="2015-12-29T17:45:55.000Z" itemprop="datePublished">2015-12-29</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/">Monitoring PostgreSQL Replication Lag with Monit</a>
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>For some time, we have been utilizing PostgreSQL’s hot standby replication feature in both our staging and production environments. Currently, the hot standby serves three functions:</p>
+<ol>
+<li>Standby server for maximum uptime if the master fails.</li>
+<li>Disaster recovery if the master fails completely.</li>
+<li>Read-only batch operations like taking nightly backups.</li>
+</ol>
+<p>All three of these functions are critical to the safety of our data, so we need to be sure that the master and slave are properly communicating at all times. We use <a href="https://mmonit.com/monit/" target="_blank" rel="external">Monit</a>Monit and <a href="https://mmonit.com" target="_blank" rel="external">M/Monit</a> for most of our application and server monitoring. Monit is a daemon that runs on each of our servers, and performs checks at regular intervals. M/Monit is a centralized dashboard and alert service to which all of the Monit instances report. To help ensure that we get alerts even if our network is completely offline, our M/Monit host is hosted by AWS.</p>
+<p>Because replication is so important, I have taken a belt and suspenders approach to monitoring the replication lag. This means that Monit is checking the replication status on both the master and the slave servers. The approach uses Monit’s <code>check program</code> functionality to run a simple python script. If the script exits with an error (non-zero) status, then Monit will send an alert to our M/Monit server. M/Monit will then send emails and slack notifications to us.</p>
+<p>On to the code:</p>
+<h3 id="On-the-master-server"><a href="#On-the-master-server" class="headerlink" title="On the master server:"></a>On the master server:</h3><h4 id="etc-monit-conf-d-pg-master-replication-check"><a href="#etc-monit-conf-d-pg-master-replication-check" class="headerlink" title="/etc/monit/conf.d/pg-master-replication-check"></a><code>/etc/monit/conf.d/pg-master-replication-check</code></h4><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">check</span> program replication_check</div><div class="line">        <span class="keyword">with</span> <span class="keyword">path</span> <span class="string">"/coins/pg-monitoring/master-replication-check.py"</span></div><div class="line">        <span class="keyword">as</span> uid <span class="string">"&#123;&#123;postgresql_service_user&#125;&#125;"</span></div><div class="line">        <span class="keyword">and</span> gid <span class="string">"webadmins"</span></div><div class="line">    <span class="keyword">if</span> <span class="keyword">status</span> != <span class="number">0</span> <span class="keyword">for</span> <span class="number">3</span> cycles <span class="keyword">then</span> alert</div></pre></td></tr></table></figure>
+<h3 id="coins-pg-monitoring-master-replication-check-py"><a href="#coins-pg-monitoring-master-replication-check-py" class="headerlink" title="/coins/pg-monitoring/master-replication-check.py"></a><code>/coins/pg-monitoring/master-replication-check.py</code></h3><p>This script queries the database to ascertain that it is in the right state (WAL streaming), and that the replication position reported by the slave is in line with that expected by the master.</p>
+<figure class="highlight zephir"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line"><span class="comment">#!/usr/bin/python</span></div><div class="line">import subprocess</div><div class="line"></div><div class="line">repLagBytesLimit = <span class="number">128</span></div><div class="line"></div><div class="line"><span class="keyword">try</span>:</div><div class="line">    repModeRes = subprocess.check_output(<span class="string">'psql -t -p &#123;&#123;postgresql_port&#125;&#125; -c "SELECT state FROM pg_stat_replication"'</span>, shell=<span class="keyword">True</span>)</div><div class="line"></div><div class="line">    isInRepMode = repModeRes.strip() == <span class="string">'streaming'</span></div><div class="line"></div><div class="line">    repLagRes = subprocess.check_output(<span class="string">'psql -t -p &#123;&#123;postgresql_port&#125;&#125; -c "SELECT pg_xlog_location_diff(sent_location, replay_location) FROM pg_stat_replication"'</span>, shell=<span class="keyword">True</span>)</div><div class="line"></div><div class="line">    repLagBytes = <span class="keyword">float</span>(repLagRes)</div><div class="line"></div><div class="line">except subprocess.CalledProcessError <span class="keyword">as</span> e:</div><div class="line">    <span class="keyword">print</span> <span class="string">"Error retrieving stats: &#123;0&#125;"</span>.format(e)</div><div class="line">    <span class="keyword">exit</span>(<span class="number">1</span>)</div><div class="line"></div><div class="line"><span class="keyword">if</span> isInRepMode != <span class="keyword">True</span>:</div><div class="line">    <span class="keyword">print</span> (<span class="string">'Master server is not streaming to standby'</span>)</div><div class="line">    <span class="keyword">exit</span>(<span class="number">1</span>)</div><div class="line"></div><div class="line"><span class="keyword">if</span> repLagBytes &gt; repLagBytesLimit:</div><div class="line">    <span class="keyword">print</span> <span class="string">'Slave replay is lagging behind by %f bytes'</span> % repLagBytes</div><div class="line">    <span class="keyword">exit</span>(<span class="number">1</span>)</div><div class="line"></div><div class="line"><span class="keyword">print</span>(<span class="string">'All clear!'</span>)</div><div class="line"><span class="keyword">exit</span>(<span class="number">0</span>)</div></pre></td></tr></table></figure>
+<h3 id="On-the-slave-server"><a href="#On-the-slave-server" class="headerlink" title="On the slave server"></a>On the slave server</h3><h4 id="etc-monit-conf-d-pg-slave-replication-check"><a href="#etc-monit-conf-d-pg-slave-replication-check" class="headerlink" title="/etc/monit/conf.d/pg-slave-replication-check"></a><code>/etc/monit/conf.d/pg-slave-replication-check</code></h4><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">check</span> program replication_check</div><div class="line">        <span class="keyword">with</span> <span class="keyword">path</span> <span class="string">"/coins/pg-monitoring/slave-replication-check.py"</span></div><div class="line">        <span class="keyword">as</span> uid <span class="string">"&#123;&#123;postgresql_service_user&#125;&#125;"</span></div><div class="line">        <span class="keyword">and</span> gid <span class="string">"webadmins"</span></div><div class="line">    <span class="keyword">if</span> <span class="keyword">status</span> != <span class="number">0</span> <span class="keyword">for</span> <span class="number">3</span> cycles <span class="keyword">then</span> alert</div></pre></td></tr></table></figure>
+<h4 id="coins-pg-monitoring-slave-replication-check-py"><a href="#coins-pg-monitoring-slave-replication-check-py" class="headerlink" title="/coins/pg-monitoring/slave-replication-check.py"></a><code>/coins/pg-monitoring/slave-replication-check.py</code></h4><p>This script queries the database to ascertain that it is in the right<br>state (recovery). It also queries the current xlog position <strong>from the master</strong>,<br>and compares it to the last reply location of the slave.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line"><span class="comment">#!/usr/bin/python</span></div><div class="line">import subprocess</div><div class="line"></div><div class="line">slaveX<span class="built_in">log</span>DiffLimitBytes = 128</div><div class="line"></div><div class="line">try:</div><div class="line">    repModeRes = subprocess.check_output(<span class="string">'psql -t -p &#123;&#123;postgresql_port&#125;&#125; -c "SELECT pg_is_in_recovery()"'</span>, shell=True)</div><div class="line">    isInRepMode = repModeRes.strip() == <span class="string">'t'</span></div><div class="line"></div><div class="line">    masterX<span class="built_in">log</span>LocationRes = subprocess.check_output(<span class="string">'psql -t -p &#123;&#123;postgresql_port&#125;&#125; -h &#123;&#123;postgres_basebackup_host&#125;&#125; -U &#123;&#123;postgres_basebackup_user&#125;&#125; &#123;&#123;postgres_db_name&#125;&#125; -c "select pg_current_xlog_location();"'</span>, shell=True)</div><div class="line">    masterX<span class="built_in">log</span>LocationStr = masterX<span class="built_in">log</span>LocationRes.strip()</div><div class="line"></div><div class="line">    slaveX<span class="built_in">log</span>DiffRes = subprocess.check_output(<span class="string">'psql -t -p &#123;&#123;postgresql_port&#125;&#125; &#123;&#123;postgres_db_name&#125;&#125; -c "select pg_xlog_location_diff(pg_last_xlog_replay_location(), \'</span><span class="string">' + masterXlogLocationStr + '</span>\<span class="string">'::pg_lsn);"'</span>, shell=True)</div><div class="line">    slaveX<span class="built_in">log</span>DiffBytes = <span class="built_in">float</span>(slaveX<span class="built_in">log</span>DiffRes.strip())</div><div class="line">except subprocess.CalledProcessError as e:</div><div class="line">    <span class="built_in">print</span> <span class="string">"Error retrieving stats: &#123;0&#125;"</span>.format(e)</div><div class="line">    <span class="built_in">exit</span>(1)</div><div class="line"></div><div class="line"><span class="keyword">if</span> isInRepMode != True:</div><div class="line">    <span class="built_in">print</span> (<span class="string">'Slave server is not in recovery mode'</span>)</div><div class="line">    <span class="built_in">exit</span>(1)</div><div class="line"></div><div class="line"><span class="keyword">if</span> slaveX<span class="built_in">log</span>DiffBytes &gt; slaveX<span class="built_in">log</span>DiffLimitBytes:</div><div class="line">    <span class="built_in">print</span> <span class="string">"Slave server replication is behind master by %f bytes"</span> % slaveX<span class="built_in">log</span>DiffBytes</div><div class="line">    <span class="built_in">exit</span>(1)</div><div class="line"></div><div class="line"><span class="built_in">print</span>(<span class="string">'All clear!'</span>)</div><div class="line"><span class="built_in">exit</span>(0)</div></pre></td></tr></table></figure>
+<p>You may wonder why I chose python instead of Bash or my usual favorite: Node.js. Python is installed in our base server image, while Node is not, and I want to keep out database servers as <em>stock</em> as possible. I chose python over bash because I find that bash scripts are brittle and difficult to debug.</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" data-id="ciqjslymr0007y5w7vafehvco" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/">postgres postgresql monit m/monit monitoring COINS3.0</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" class="article-date">
+  <time datetime="2015-07-04T17:26:21.000Z" itemprop="datePublished">2015-07-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/">Launching a Console in VMware Web Client on Windows 10, Chrome 42+</a>
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Maybe it is just me, but I had a difficult time launching the console of my<br>guest VMs using the VMware Web Client. Here is how I eventually got it working<br>on Windows 10 and Chrome 43.x.</p>
+<img src="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/launch.png" alt="Launch VMWare Web Client" title="Launch VMWare Web Client">
+<h2 id="Background"><a href="#Background" class="headerlink" title="Background"></a>Background</h2><p>I am a huge fan of VMware’s plan to replace their Windows-only vSphere desktop<br>client with a web client. Using the web client, I am able to perform<br><em>most</em> tasks directly from my Mac, thus saving the time of booting a Windows VM.<br>The only task which cannot be performed in the web client from OS-X is launching<br>the guest OS console.</p>
+<p>In order to open the console in the web client, it is necessary to install the<br><em>VMware Client Integration Plugin</em>, which VMWare claims is only available for<br>64/32-bit Windows and 32-bit Linux. I was unable to get the Client Integration<br>Plugin to install on Ubuntu 14.04, so it looks like I am still stuck using a<br>Windows VM to manage our VMware cluster.</p>
+<p>Even on Windows, it took some time to get things configured such that I could<br>access a guest VM’s console via the web client. Here is how I eventually did it.</p>
+<h2 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h2><ul>
+<li>OS: Windows 10 Evaluation Copy</li>
+<li>Browser: Google Chrome 43.0.2357.130 (Tried IE Edge and Firefox with no luck)</li>
+</ul>
+<h2 id="Install-Client-Integration-Plugin"><a href="#Install-Client-Integration-Plugin" class="headerlink" title="Install Client Integration Plugin"></a>Install Client Integration Plugin</h2><ol>
+<li>Navigate to your VMware Web Client login page in your browser. <strong>Do not log in.</strong></li>
+<li>Click the link at the bottom left of the page entitled ‘Download Client Integration Plugin’.</li>
+<li>Run the downloaded installer, accepting all defaults.</li>
+</ol>
+<h2 id="Enable-NPAPI-plugins"><a href="#Enable-NPAPI-plugins" class="headerlink" title="Enable NPAPI plugins:"></a>Enable NPAPI plugins:</h2><ol>
+<li>Paste <code>chrome://flags/#enable-npapi</code> into your address bar and press return.</li>
+<li>Click <code>Enable</code> below <em>Enable NPAPI</em>.</li>
+<li><strong>Click <code>Relaunch Now</code> at the bottom left of the page</strong>.</li>
+</ol>
+<h2 id="Allow-VMware-plugins-to-run"><a href="#Allow-VMware-plugins-to-run" class="headerlink" title="Allow VMware plugins to run"></a>Allow VMware plugins to run</h2><ol>
+<li>Paste <code>chrome://plugins/</code> into the address bar and press return.</li>
+<li>Check the box next to ‘Always allow to run’ below <strong>both</strong> VMware plugins.</li>
+</ol>
+<h2 id="Verify-plugins"><a href="#Verify-plugins" class="headerlink" title="Verify plugins"></a>Verify plugins</h2><ol>
+<li>Restart the windows machine for good measure.</li>
+<li>Open Chrome and navigate back to your VMware Web Client login page.<br>You should see two notifications from chrome at the top of the page (see image below).<br>These notifications can be disregarded (for now, see discussion further below).<img src="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/plugin_warnings.png" alt="plugin_warnings.png" title="">
+</li>
+</ol>
+<h2 id="Still-does-not-work"><a href="#Still-does-not-work" class="headerlink" title="Still does not work?"></a>Still does not work?</h2><p>If you do not see the warnings from Chrome, try this:</p>
+<ol>
+<li>Navigate to chrome://settings/content</li>
+<li>Scroll to ‘Unsandboxed Plugins’</li>
+<li>Select ‘Allow all sites …’</li>
+<li>Click ‘Done’</li>
+<li>Repeat the <em>Verify plugins</em> steps above.</li>
+</ol>
+<h2 id="Open-the-console-for-a-VM"><a href="#Open-the-console-for-a-VM" class="headerlink" title="Open the console for a VM"></a>Open the console for a VM</h2><ol>
+<li>Log in to the VMware Web Client</li>
+<li>Locate a VM whos console you want to open</li>
+<li>Click the <code>Settings</code> tab</li>
+<li>Near the top of the center pane, you should see a black square with the text <code>Launch Console</code> beneath it. If you see a link to <code>Download plugin</code> instead, something<br>is wrong. Try repeating the steps above.</li>
+</ol>
+<h2 id="Discussion-about-NPAPI-plugin-support"><a href="#Discussion-about-NPAPI-plugin-support" class="headerlink" title="Discussion about NPAPI plugin support"></a>Discussion about NPAPI plugin support</h2><p>Google has promised to completely remove NPAPI plugin support from Chrome with<br>version 45. Given the approximate 5-week release schedule that Google has been on,<br>this means that you will only be able to use the most recent version of Chrome<br>with the VMware Client Integration Plugin for another couple of months.</p>
+<p>With this in mind, I am going to keep my vSphere desktop application installed.<br>Hopefully, VMware has already begun work on a truly cross platform Web Client<br>that supports launching a console.</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" data-id="ciqjslym00003y5w76z2ifwp1" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Chrome/">Chrome</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VMware/">VMware</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/vSphere/">vSphere</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-How-to-partially-retreat-from-a-database-upgrade" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/" class="article-date">
+  <time datetime="2015-06-22T00:00:17.000Z" itemprop="datePublished">2015-06-21</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>This post has turned into a bit of a long story.<br>If you are just looking for how to perform a <code>pg_restore</code> from a newer version of PostgreSQL to an older version of PostgreSQL, look down toward the bottom.</p>
+<p>We recently upgraded our worn-out PostgreSQL 8.4 database running on a Cents 5.5 VM to a shiny new PostgreSQL 9.4 database on top of Ubuntu 14.04.<br>During a three week testing period, we encountered and fixed a coulple of upgrade-induced bugs in our staging environment.<br>At the end of three weeks of testing, we felt confident that the upgrade would go smoothly in production… and it did (mostly).</p>
+<p>The day after the upgrade, users started to submit tickets complaining that our data export tool was running very slowly in some cases, and just hanging in other cases.<br>Myself and two other engineers spent the next day and a half benchmarking the new database servers over and over, and looking at <code>Explain Analyze</code> plans.<br>Eventually, we convinced ourselves that the issue was not with the underlying virtual machine, or the OS, but with our configuration of postgres.</p>
+<p>To better debug, we restarted our old database server, and ran the offending queries there as well as in the new server in our staging environment.<br>We were able to gain some insights into the issue by comparing the <code>Explain Analyze</code> output from both servers:<br>The new database was not using the same indices that the old database was. This resulted in more nested loops and analyzing more rows than necessary.</p>
+<p>By increasing the <code>random_page_cost</code> from 4 to 15, we were able to get the query explain plans to look more similar, but performance did not improve.<br>The new database was still choosing different indices to scan.</p>
+<p>At this point, our users had been without a useful query-building-export tool for two business days, so it was time to switch tactics and implement a work-around solution.<br>I decided that it would be easiest to direct the queries used by our export tool to a copy of our old production database.<br>We would be able to keep the copy relatively up to date by loading nightly backups from our production infrastructure.</p>
+<p>Modifying the application layer to send requests to the old database server was trivial, since there was a dedicated endpoint just for the low-performig export tool.<br>Getting the old database to refresh from a backup of the new database was a little trickier. </p>
+<p>First, I set up a cron job to run a <code>pg_dump</code> on our hot standby database server every night, and store the dump on our network storage.<br>I have always used the <em>custom</em> format (<code>-Fc</code>) for pg_dumps, as they allow a lot of flexibility when performing the restore.<br>This was not an option in this case because I received the following error when trying to restore on the PG 8.4 server: <code>pg_restore: [archiver] unsupported version (1.12) in file header</code>.</p>
+<p>My initial attempts to circumvent this included running the pg_dump of the new database remotely from the old database server unsuccessfully, and attempting to upgrade only <em>postgres-contrib</em> on the old database server.<br>Neither of these solutions worked out, so I decided to use the <em>plain</em> pg_dump format (<code>-Fp</code>). This outputs plain SQL statements to rebuild the schema and data.<br>There are still a few errors during the restore, because the <code>CREATE EXTENSION</code> functionality does not exist in PG 8.4, but I can simply rebuild the necessary extensions manually after the rebuild.</p>
+<p>To reduce the time taken by the dump and restore process, I only dump the schema used by the export tool.<br>In addition, I omit all history tables (a construct we use to track changes made to data in the database) and some of the larger tables not used by the query tool.<br>This also reduces the size of the restored database considerably, and allows me to restore into a temporary database while the primary database is still running, allowing for near-zero downtime.</p>
+<p>A simplified diagram of the current system is shown below:<br><img src="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/QBPG84.png" alt="QBPG84.png" title=""></p>
+<p>Here is the cron task that dumps the data. This is placed in its own file in <code>/etc/cron.d</code><br><figure class="highlight basic"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="symbol">30 </span><span class="number">23</span> * * * postgres pg_dump -vFp -p <span class="number">6117</span> -T <span class="comment">'mrsdba.mrs_series_data' -T '*_hist'  -T mrsdba.mrs_series  -T mrsdba.mrs_analysis_files -T mrsdba.mrs_assessment_events -T mrsdba.mrs_asmt_resp_hist_new -n 'mrsdba' postgres &gt; '/coins/mn    t/ni/prodrepdbcoin.sql' &gt; /tmp/rep_dump.log 2&gt;&amp;1</span></div></pre></td></tr></table></figure></p>
+<p>Here is the script that creates a new Postgres 8.4 DB from the dump of the Postgres 9.4 database.<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="comment"># Author: Dylan Wood</span></div><div class="line"><span class="comment"># Date: June.20.2015</span></div><div class="line"><span class="comment"># Script is called from /etc/cron.d/coins_query_restore</span></div><div class="line"></div><div class="line"><span class="built_in">echo</span> <span class="string">'Starting COINS DB refresh as user:'</span></div><div class="line"><span class="built_in">echo</span> `id`</div><div class="line"><span class="built_in">echo</span> `date`</div><div class="line"></div><div class="line"><span class="comment"># Define variables</span></div><div class="line">ARCHIVE_DIR=<span class="string">"/export/ni/prodrepdbcoin.sql"</span></div><div class="line">ARCHIVE_FILE=`ls -1t <span class="variable">$ARCHIVE_DIR</span> | head -1`</div><div class="line">DBNAME=<span class="string">"postgres"</span></div><div class="line">DBPORT=6117</div><div class="line"></div><div class="line"><span class="comment"># Create temp database</span></div><div class="line"><span class="comment"># Create empty DB</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Creating empty DB'</span></div><div class="line">createdb -p <span class="variable">$DBPORT</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp</div><div class="line"></div><div class="line"><span class="comment"># Create lang</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'create plpgsql lang'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp -c <span class="string">'CREATE LANGUAGE plpgsql'</span></div><div class="line"></div><div class="line"><span class="comment"># Restore DB</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'restoring db from latest dump'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp <span class="_">-f</span> <span class="variable">$ARCHIVE_FILE</span></div><div class="line"></div><div class="line"><span class="comment"># Edit default search path</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Setting default search path'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp -c <span class="string">"ALTER DATABASE <span class="variable">$&#123;DBNAME&#125;</span>_temp SET search_path=mrsdba, casdba, public;"</span></div><div class="line"></div><div class="line"><span class="comment"># Truncate qb temp tables</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Truncating QB temp tables'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp -c <span class="string">"TRUNCATE TABLE mrsdba.mrs_qb_asmt_data_sort_temp; TRUNCATE TABLE mrsdba.mrs_qb_asmt_pivot_categories_temp;"</span></div><div class="line"></div><div class="line"><span class="comment"># Add empty schemas</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Adding casdba, dxdba and dtdba'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp -c <span class="string">"CREATE schema casdba; CREATE schema dxdba; CREATE schema dtdba;"</span></div><div class="line"></div><div class="line"><span class="comment"># Create tablefunc extension</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Create tablefunc extension'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp <span class="_">-f</span> /usr/share/pgsql/contrib/tablefunc.sql</div><div class="line"></div><div class="line"><span class="comment"># VACUUM ANALYZE THE DB</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'VACUUM ANALYZE'</span></div><div class="line">psql -p <span class="variable">$DBPORT</span> <span class="_">-d</span> <span class="variable">$&#123;DBNAME&#125;</span>_temp -c <span class="string">"VACUUM ANALYZE"</span></div><div class="line"></div><div class="line"><span class="comment"># Drop database</span></div><div class="line"></div><div class="line"><span class="comment"># First, disconnect all connections</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Terminating connections to DB'</span></div><div class="line">psql <span class="_">-d</span> <span class="variable">$DBNAME</span> -p <span class="variable">$DBPORT</span> -c <span class="string">"SELECT pg_terminate_backend(procpid) FROM pg_stat_activity WHERE procpid &lt;&gt; pg_backend_pid() AND datname = '<span class="variable">$DBNAME</span>';"</span></div><div class="line"></div><div class="line"><span class="comment"># Drop DB</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Dropping DB'</span></div><div class="line">dropdb -p <span class="variable">$DBPORT</span> <span class="variable">$DBNAME</span></div><div class="line"></div><div class="line"><span class="comment"># Rename temp DB</span></div><div class="line"><span class="built_in">echo</span> <span class="string">'Renaming temp database'</span></div><div class="line">psql <span class="_">-d</span> habaridb -p <span class="variable">$DBPORT</span> -c <span class="string">"ALTER DATABASE <span class="variable">$&#123;DBNAME&#125;</span>_temp RENAME TO <span class="variable">$&#123;DBNAME&#125;</span>;"</span></div><div class="line"></div><div class="line"><span class="built_in">echo</span> <span class="string">'Finished with COINS DB refresh'</span></div><div class="line"><span class="built_in">echo</span> `date`</div></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/" data-id="ciqjslylw0001y5w7iq170m4c" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Standardizing-PostgresSQL-Instances" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/06/13/Standardizing-PostgresSQL-Instances/" class="article-date">
+  <time datetime="2015-06-13T19:57:29.000Z" itemprop="datePublished">2015-06-13</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/06/13/Standardizing-PostgresSQL-Instances/">Standardizing PostgresSQL Instances</a>
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>COINS uses a centralized PostgreSQL database. We have been so busy developing new features that we have not upgraded the database used by the COINS production application since 2010!<br>New feature requirements and a need for increased disk space on our production server are finally motivating us to upgrade to PostgreSQL 9.4.<br>While we are at it, we will upgrade the underlying virtual host to Ubuntu Server 14.04, with enough RAM to fit our rapidly growing datbase in memory.<br>Finally, it makes sense to lay some ground work to clean up our inconsistent use of database names and ports.</p>
+<h2 id="Summary-of-changes"><a href="#Summary-of-changes" class="headerlink" title="Summary of changes:"></a>Summary of changes:</h2><table>
+<thead>
+<tr>
+<th></th>
+<th>Current Value</th>
+<th>New Value </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OS</td>
+<td>CentOS 5.5</td>
+<td>Ubuntu Server 14.04</td>
+</tr>
+<tr>
+<td>DBMS</td>
+<td>PostgreSQL 8.4.5</td>
+<td>PostgreSQL 9.4.2</td>
+</tr>
+<tr>
+<td>RAM</td>
+<td>16GB</td>
+<td>48GB</td>
+</tr>
+<tr>
+<td>CPU Cores</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Recovery</td>
+<td>Nightly pg_dump</td>
+<td>WAL archiving for PITR (managed by <a href="http://pgbarman.org" target="_blank" rel="external">PG Barman</a></td>
+</tr>
+<tr>
+<td>Replication</td>
+<td>Daily pg_restore from nightly pg_dump</td>
+<td>Hot Standby w/ WAL shipping</td>
+</tr>
+<tr>
+<td>COINS DB name</td>
+<td>postgres</td>
+<td>coins</td>
+</tr>
+<tr>
+<td>Port</td>
+<td>6117</td>
+<td>5432</td>
+</tr>
+<tr>
+<td>Hostname</td>
+<td>tesla.mind.unm.edu</td>
+<td>proddbcoin.mind.unm.edu</td>
+</tr>
+<tr>
+<td>Connection Pooling</td>
+<td>none</td>
+<td>pgbouncer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="Justification"><a href="#Justification" class="headerlink" title="Justification"></a>Justification</h2><h3 id="Operating-System"><a href="#Operating-System" class="headerlink" title="Operating System"></a>Operating System</h3><p>CentOS has served us well for many years, but we have found that Ubuntu’s more up-to-date repositories allow us to stay with the herd as new features are released in packages we depend on (e.g. PostgreSQL, PHP5, Node.js, etc…)</p>
+<h3 id="Postgres"><a href="#Postgres" class="headerlink" title="Postgres"></a>Postgres</h3><p>Simple: 8.4 is no longer supported. Also, new JSON functionality is really nice (e.g. row_to_json).</p>
+<h3 id="RAM"><a href="#RAM" class="headerlink" title="RAM"></a>RAM</h3><p>When our current production database server was provisioned, 16GB was enough ram to hold two copies of the COINS database. The database is currently 24GB on disk, and growing fast. 48GB should buy us a little time.</p>
+<h3 id="CPU-Cores"><a href="#CPU-Cores" class="headerlink" title="CPU Cores"></a>CPU Cores</h3><p>Postgres does not do anything special for multi-core environments. Instead, it relies on the operating system to destribute its child processes across the cores evenly. Our database has never been CPU bound, so we see no need to increase the number of cores at this point.</p>
+<h3 id="Disaster-Recovery-and-Backups"><a href="#Disaster-Recovery-and-Backups" class="headerlink" title="Disaster Recovery and Backups"></a>Disaster Recovery and Backups</h3><p>We currently have a cron which performs a <code>pg_dump</code> of the production database every night, and stores the dump on our internal network storage at MRN. In the event of a total loss of our database server, we would be able to recover all changes made before midnight on the day of the failure. Utilizing WAL archiving will allow for Point in Time recovery, and could allow us to salvage data and changes made only minutes or seconds before the outage. In addition, it lays the ground work for a geographically distributed recovery system.</p>
+<h3 id="Replication"><a href="#Replication" class="headerlink" title="Replication"></a>Replication</h3><p>In order to get COINS running as soon as possible after an outage, we have another production-ready database server running at all times. This database is refreshed every morning from the previous night’s <code>pg_dump</code> of production. Unfortunately, if the production database were to fail, users would loose access to data entered after the last <code>pg_dump</code>. Further, if we were able to salvage the data entered between the last <code>pg_dump</code> and the outage, we would need to somehow merge all of that data with data entered into the replication database after the outage. </p>
+<p>The new system uses WAL streaming to replicate all changes made in production (even schema changes!). In the event that the production database were to fail, the replication database would likely be only a few records behind the production database. Aside from loosing much less data in the event of a failover, there are other benefits to having a nearly up-to-date copy of production lying around at all times:</p>
+<ul>
+<li>Backups can be made of the replication database, thus reducing the load on the production server during backup times</li>
+<li>The replication database can be configured to handle read-only queries, further reducing the load on the master production database, and decreasing query time.</li>
+</ul>
+<h3 id="Database-name"><a href="#Database-name" class="headerlink" title="Database name"></a>Database name</h3><p>Back in 2010, the COINS team migrated from an Oracle Database to PostgreSQL. Our understanding of Postgres was still very limited, and we made some poor design decisions. One of these decisions was to use the default maintenance database as our primary DB. This does not directly cause any problems, but is generally a bad practice. </p>
+<p>There are at least one dozen devices spread across the United States that connect to our production database, and rely on the current database name. Changing all of these touch points in a single go would be stressful and very risky (even after practice, and lots of planning, we could still miss or break a few devices). Updating the devices one at a time to utilize the new database name is therefore much more favorable. Doing so will allow us to cooperate with the device owners to come up with a time that will not negatively impact their work. </p>
+<p><strong>The problem is:</strong> a Postgres database can only have one name and one port. We can overcome this by using a connection pooling tool called <a href="https://pgbouncer.github.io" target="_blank" rel="external">PGBouncer</a>. In addition to reducing the overhead involved with creating connections inside of PostgreSQL, PGBouncer also allows aliasing the database name. This means that some devices can connect to our database using the database name <em>postgres</em> while others can connect using the database name <em>coins</em>. </p>
+<h3 id="Database-port"><a href="#Database-port" class="headerlink" title="Database port"></a>Database port</h3><p>Another one of the poor design decisions from back in 2010 was to use a non-standard port for PG. I believe that this was a <em>security through obscurity</em> decision. Not only does the obscurity cause issues with our own configuration, it pprovides no additional security against anyone who is able to port-scan on our network. Any security benefit that it might have given us is void as soon as I publish this article. </p>
+<p>Changing the port is subject to the same pitfalls mentioned above, so we need a way to support both the legacy port and the new port simultaneously while we carefully update all devices. This can be accomplished using port forwarding within the database server</p>
+<h3 id="Hostname"><a href="#Hostname" class="headerlink" title="Hostname"></a>Hostname</h3><p>Just to be consistent with our latest server naming convention, the production database should be called <strong>proddbcoin</strong>. Since we use static IP assignments in our DNS, this should be easy: We can direct all legacy and current hostnames to the same IP, allowing us to slowly migrate devices to the new hostname. In fact, most devices uses a public IP address to connect to our database, since they are not within our private network.</p>
+<h3 id="Connection-Pooling"><a href="#Connection-Pooling" class="headerlink" title="Connection Pooling"></a>Connection Pooling</h3><p>I went over this a little in the database name section. The connection pooling approach prevents the overhead involved in creating a new connection each time a device, or our PHP server needs one. I also allows us to alias the database name for a smooth transition away from using the <em>postgres</em> database. Finally, it offers the benefits typically associated with a reverse proxy: the possibility of load ballancing across multiple servers, or switching the servers out behind the connection pool without interrupting service at all.</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>The new COINS production database setup may seem a bit more complex than the one it is replacing, and it is. However, all of these complex pieces are being provisioned and configured using Ansible, so the steps can easily be repeated and tweaked. </p>
+<p>Here is a diagram showing how both old and new connections strings can reach the same databse: <img src="/2015/06/13/Standardizing-PostgresSQL-Instances/network.png" alt="network.png" title=""></p>
+<p><em>The database is slated to be replaced on Wednesday, June 17th. I will be practicing the deployment using Ansible in our staging environment until then</em></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/06/13/Standardizing-PostgresSQL-Instances/" data-id="ciqjslyn2000by5w7doynf4y5" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/">postgres postgresql pgbarman pgbouncer COINS3.0</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Why-a-blog" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/06/13/Why-a-blog/" class="article-date">
+  <time datetime="2015-06-13T19:01:14.000Z" itemprop="datePublished">2015-06-13</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/06/13/Why-a-blog/">Why a blog</a>
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>“<strong>Why am I doing this?</strong>“ I try to ask myself this question at least once per hour while I am working to be sure that I am doing something that will contribute to our team’s goals.<br>Consequently, it makes sense to ask (and answer) this question now. There are a few justifications that come to mind.</p>
+<h2 id="Internal-communication-and-continuity"><a href="#Internal-communication-and-continuity" class="headerlink" title="Internal communication and continuity"></a>Internal communication and continuity</h2><p>When working on a new project or feature, one of our team members will usually create a Google Doc, presentation or simple email that explains the design decisions made.<br>However, because there are a variety of venues for sharing this information (Gmail, Google Drive, Gitter, to name a few), it can be difficult to find it again later.<br>If this blog idea catches on with the rest of the team, this could become the centralized place to document design decisions.</p>
+<h2 id="Sharing-with-the-community"><a href="#Sharing-with-the-community" class="headerlink" title="Sharing with the community"></a>Sharing with the community</h2><p>Many of the problems that we solve every day are not neuroimaging-specific. Instead, they are problems that web application engineers from all sorts of industries are faced with daily.<br>By placing our best practices and lessons learned in a public place, we may be able to help others avoid pitfals that we’ve already succumb to.<br>Further, as COINS becomes more open source, this blog may be the place that community contributers will look to find COINS-specific technical information.</p>
+<p>The team that I work with does some pretty cool stuff, and I am excited that we will all be able to share it with anyone who is interested.</p>
+<h2 id="Reflection"><a href="#Reflection" class="headerlink" title="Reflection"></a>Reflection</h2><p>Writing things down is a great way to process them. I have uncovered countless bugs by just documenting and justifying my changes.</p>
+<p>Ok, now on to the first real post (Standardizing our PostgreSQL instances)…</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/06/13/Why-a-blog/" data-id="ciqjslyn0000ay5w7usajerdf" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+  
+</section>
+        
+          
+            <aside id="sidebar">
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recents</h3>
+    <div class="widget recents">
+      <ul>
+        
+          <li>
+            <a href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
+          </li>
+        
+          <li>
+            <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/">Monitoring PostgreSQL Replication Lag with Monit</a>
+          </li>
+        
+          <li>
+            <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/">Launching a Console in VMware Web Client on Windows 10, Chrome 42+</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/24/Managing-Application-Dates-and-Times/">Managing Application Dates and Times</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+</aside>
+          
+        
+      </div>
+      <div id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a></br>
+      &copy; 2016 Dylan Wood<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</div>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+  </div>
+</body>
+</html>

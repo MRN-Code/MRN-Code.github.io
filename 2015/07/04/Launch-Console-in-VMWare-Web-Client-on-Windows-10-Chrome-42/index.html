@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Launching a Console in VMware Web Client on Windows 10, Chrome 42+ | MRN-Code</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Maybe it is just me, but I had a difficult time launching the console of myguest VMs using the VMware Web Client. Here is how I eventually got it workingon Windows 10 and Chrome 43.x.
+
+BackgroundI am">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Launching a Console in VMware Web Client on Windows 10, Chrome 42+">
+<meta property="og:url" content="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/index.html">
+<meta property="og:site_name" content="MRN-Code">
+<meta property="og:description" content="Maybe it is just me, but I had a difficult time launching the console of myguest VMs using the VMware Web Client. Here is how I eventually got it workingon Windows 10 and Chrome 43.x.
+
+BackgroundI am">
+<meta property="og:image" content="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/launch.png">
+<meta property="og:image" content="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/plugin_warnings.png">
+<meta property="og:updated_time" content="2016-07-12T16:30:58.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Launching a Console in VMware Web Client on Windows 10, Chrome 42+">
+<meta name="twitter:description" content="Maybe it is just me, but I had a difficult time launching the console of myguest VMs using the VMware Web Client. Here is how I eventually got it workingon Windows 10 and Chrome 43.x.
+
+BackgroundI am">
+<meta name="twitter:image" content="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/launch.png">
+  
+    <link rel="alternative" href="/atom.xml" title="MRN-Code" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.png">
+  
+  <link href="//fonts.googleapis.com/css?family=Inconsolata:400,700|Open+Sans:700,400" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css">
+  
+
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <div id="header">
+  <div id="header-outer" class="outer">
+    <div id="header-inner" class="inner">
+      <div id="header-title">
+        <h1 id="logo-wrap">
+          <a href="/" id="logo">MRN-Code
+          
+              <span id="subtitle">Technical musings from the MRN NI team</span>
+          
+          </a>
+        </h1>
+      </div>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://MRN-Code.github.io"></form>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="outer">
+        <section id="main"><article id="post-Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" class="article-date">
+  <time datetime="2015-07-04T17:26:21.000Z" itemprop="datePublished">2015-07-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Launching a Console in VMware Web Client on Windows 10, Chrome 42+
+    </h1>
+  
+  
+    <a href="/author/dwood"><h4>Dylan Wood</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Maybe it is just me, but I had a difficult time launching the console of my<br>guest VMs using the VMware Web Client. Here is how I eventually got it working<br>on Windows 10 and Chrome 43.x.</p>
+<img src="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/launch.png" alt="Launch VMWare Web Client" title="Launch VMWare Web Client">
+<h2 id="Background"><a href="#Background" class="headerlink" title="Background"></a>Background</h2><p>I am a huge fan of VMware’s plan to replace their Windows-only vSphere desktop<br>client with a web client. Using the web client, I am able to perform<br><em>most</em> tasks directly from my Mac, thus saving the time of booting a Windows VM.<br>The only task which cannot be performed in the web client from OS-X is launching<br>the guest OS console.</p>
+<p>In order to open the console in the web client, it is necessary to install the<br><em>VMware Client Integration Plugin</em>, which VMWare claims is only available for<br>64/32-bit Windows and 32-bit Linux. I was unable to get the Client Integration<br>Plugin to install on Ubuntu 14.04, so it looks like I am still stuck using a<br>Windows VM to manage our VMware cluster.</p>
+<p>Even on Windows, it took some time to get things configured such that I could<br>access a guest VM’s console via the web client. Here is how I eventually did it.</p>
+<h2 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h2><ul>
+<li>OS: Windows 10 Evaluation Copy</li>
+<li>Browser: Google Chrome 43.0.2357.130 (Tried IE Edge and Firefox with no luck)</li>
+</ul>
+<h2 id="Install-Client-Integration-Plugin"><a href="#Install-Client-Integration-Plugin" class="headerlink" title="Install Client Integration Plugin"></a>Install Client Integration Plugin</h2><ol>
+<li>Navigate to your VMware Web Client login page in your browser. <strong>Do not log in.</strong></li>
+<li>Click the link at the bottom left of the page entitled ‘Download Client Integration Plugin’.</li>
+<li>Run the downloaded installer, accepting all defaults.</li>
+</ol>
+<h2 id="Enable-NPAPI-plugins"><a href="#Enable-NPAPI-plugins" class="headerlink" title="Enable NPAPI plugins:"></a>Enable NPAPI plugins:</h2><ol>
+<li>Paste <code>chrome://flags/#enable-npapi</code> into your address bar and press return.</li>
+<li>Click <code>Enable</code> below <em>Enable NPAPI</em>.</li>
+<li><strong>Click <code>Relaunch Now</code> at the bottom left of the page</strong>.</li>
+</ol>
+<h2 id="Allow-VMware-plugins-to-run"><a href="#Allow-VMware-plugins-to-run" class="headerlink" title="Allow VMware plugins to run"></a>Allow VMware plugins to run</h2><ol>
+<li>Paste <code>chrome://plugins/</code> into the address bar and press return.</li>
+<li>Check the box next to ‘Always allow to run’ below <strong>both</strong> VMware plugins.</li>
+</ol>
+<h2 id="Verify-plugins"><a href="#Verify-plugins" class="headerlink" title="Verify plugins"></a>Verify plugins</h2><ol>
+<li>Restart the windows machine for good measure.</li>
+<li>Open Chrome and navigate back to your VMware Web Client login page.<br>You should see two notifications from chrome at the top of the page (see image below).<br>These notifications can be disregarded (for now, see discussion further below).<img src="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/plugin_warnings.png" alt="plugin_warnings.png" title="">
+</li>
+</ol>
+<h2 id="Still-does-not-work"><a href="#Still-does-not-work" class="headerlink" title="Still does not work?"></a>Still does not work?</h2><p>If you do not see the warnings from Chrome, try this:</p>
+<ol>
+<li>Navigate to chrome://settings/content</li>
+<li>Scroll to ‘Unsandboxed Plugins’</li>
+<li>Select ‘Allow all sites …’</li>
+<li>Click ‘Done’</li>
+<li>Repeat the <em>Verify plugins</em> steps above.</li>
+</ol>
+<h2 id="Open-the-console-for-a-VM"><a href="#Open-the-console-for-a-VM" class="headerlink" title="Open the console for a VM"></a>Open the console for a VM</h2><ol>
+<li>Log in to the VMware Web Client</li>
+<li>Locate a VM whos console you want to open</li>
+<li>Click the <code>Settings</code> tab</li>
+<li>Near the top of the center pane, you should see a black square with the text <code>Launch Console</code> beneath it. If you see a link to <code>Download plugin</code> instead, something<br>is wrong. Try repeating the steps above.</li>
+</ol>
+<h2 id="Discussion-about-NPAPI-plugin-support"><a href="#Discussion-about-NPAPI-plugin-support" class="headerlink" title="Discussion about NPAPI plugin support"></a>Discussion about NPAPI plugin support</h2><p>Google has promised to completely remove NPAPI plugin support from Chrome with<br>version 45. Given the approximate 5-week release schedule that Google has been on,<br>this means that you will only be able to use the most recent version of Chrome<br>with the VMware Client Integration Plugin for another couple of months.</p>
+<p>With this in mind, I am going to keep my vSphere desktop application installed.<br>Hopefully, VMware has already begun work on a truly cross platform Web Client<br>that supports launching a console.</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" data-id="ciqjslym00003y5w76z2ifwp1" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Chrome/">Chrome</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VMware/">VMware</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/vSphere/">vSphere</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Monitoring PostgreSQL Replication Lag with Monit
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2015/06/24/Managing-Application-Dates-and-Times/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Managing Application Dates and Times</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          
+            <aside id="sidebar">
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recents</h3>
+    <div class="widget recents">
+      <ul>
+        
+          <li>
+            <a href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
+          </li>
+        
+          <li>
+            <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/">Monitoring PostgreSQL Replication Lag with Monit</a>
+          </li>
+        
+          <li>
+            <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/">Launching a Console in VMware Web Client on Windows 10, Chrome 42+</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/24/Managing-Application-Dates-and-Times/">Managing Application Dates and Times</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+</aside>
+          
+        
+      </div>
+      <div id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a></br>
+      &copy; 2016 Dylan Wood<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</div>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+  </div>
+</body>
+</html>

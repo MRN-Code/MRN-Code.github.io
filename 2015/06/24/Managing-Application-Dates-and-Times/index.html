@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Managing Application Dates and Times | MRN-Code</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Note: this is a repost from cdaringe.net
+Managing date and times has long been trouble for every application developer.  In many cases, a simple app only cares about datetime resolution at the day lev">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Managing Application Dates and Times">
+<meta property="og:url" content="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/index.html">
+<meta property="og:site_name" content="MRN-Code">
+<meta property="og:description" content="Note: this is a repost from cdaringe.net
+Managing date and times has long been trouble for every application developer.  In many cases, a simple app only cares about datetime resolution at the day lev">
+<meta property="og:image" content="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/Universal_Dial_Plate_or_Times_of_all_Nations_1854.png">
+<meta property="og:updated_time" content="2016-07-12T16:30:58.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Managing Application Dates and Times">
+<meta name="twitter:description" content="Note: this is a repost from cdaringe.net
+Managing date and times has long been trouble for every application developer.  In many cases, a simple app only cares about datetime resolution at the day lev">
+<meta name="twitter:image" content="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/Universal_Dial_Plate_or_Times_of_all_Nations_1854.png">
+  
+    <link rel="alternative" href="/atom.xml" title="MRN-Code" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.png">
+  
+  <link href="//fonts.googleapis.com/css?family=Inconsolata:400,700|Open+Sans:700,400" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css">
+  
+
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <div id="header">
+  <div id="header-outer" class="outer">
+    <div id="header-inner" class="inner">
+      <div id="header-title">
+        <h1 id="logo-wrap">
+          <a href="/" id="logo">MRN-Code
+          
+              <span id="subtitle">Technical musings from the MRN NI team</span>
+          
+          </a>
+        </h1>
+      </div>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://MRN-Code.github.io"></form>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="outer">
+        <section id="main"><article id="post-Managing-Application-Dates-and-Times" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/06/24/Managing-Application-Dates-and-Times/" class="article-date">
+  <time datetime="2015-06-24T16:37:55.000Z" itemprop="datePublished">2015-06-24</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Managing Application Dates and Times
+    </h1>
+  
+  
+    <a href="/author/cdieringer"><h4>Christopher Dieringer</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Note: this is a repost from <a href="http://cdaringe.com/managing-application-dates/" target="_blank" rel="external">cdaringe.net</a></p>
+<p>Managing date and times has long been trouble for every application developer.  In many cases, a simple app only cares about datetime resolution at the <code>day</code> level.  However, to many applications, higher time resolution is critical.  In these applications, a finer, more granular time-unit resolution may be highly desirable.  The difficulties in managing time emerge in the realm of relativity.   If an application, its users, and its dependent infrastructure are spread across timezones, synchronizing a chronological history of events may prove difficult if you haven’t designed your system to manage time full well.  This is discussion may be old hat for many, but a painful reality for many apps.</p>
+<img src="/2015/06/24/Managing-Application-Dates-and-Times/Universal_Dial_Plate_or_Times_of_all_Nations_1854.png" alt="Time After Time..." title="Time After Time...">
+<h2 id="why-is-it-difficult"><a href="#why-is-it-difficult" class="headerlink" title="why is it difficult?"></a>why is it difficult?</h2><p>It doesn’t have to be, actually.  The “difficult” aspects of managing time are generally designer oversight.  Two common oversights that I am personally guilty of are:</p>
+<ul>
+<li>Time is often captured incompletely. Application services consuming the incomplete time fill in the missing data with assumptions.<ul>
+<li>ex: in js, <code>(new Date()).getTime() //=&gt; 1435089516878</code>.  What happens if you log this time on a server in a different timezone?  Most likely, the server uses its timezone or UTC, <em>not</em> the user’s time zone.</li>
+</ul>
+</li>
+<li>Time is transferred in varying formats, generating sub-system overhead (or errors!)<ul>
+<li>How do you serialize your <code>date</code> or <code>time</code> objects for sending over the wire?  Is your serialization lossy?  Do your services require knowledge of each others’ formats?</li>
+</ul>
+</li>
+</ul>
+<h2 id="how-do-we-fix-it"><a href="#how-do-we-fix-it" class="headerlink" title="how do we fix it"></a>how do we fix it</h2><p>Before we discuss how these issues manifest themselves in an application, let’s quickly discuss the general solution.  We need a solution to represent time that does so reliably across:</p>
+<ul>
+<li>distributed application environments (e.g. languages, operating systems, clients)</li>
+<li>distributed application hardware</li>
+<li>client time zones</li>
+</ul>
+<p>My preferred strategy is to <strong>store, transfer, and manipulate complete timestamps only</strong>.  What’s a complete timestamp?  It’s simply an absolute time with visual representation of timezone.  It’s a string or composite datatype specifying time with my application’s required time-unit resolution or finer, + TZ.  Practically speaking, in my app I will:</p>
+<ul>
+<li>store all database times as timestamp with timezone (or equivalent)</li>
+<li><p>transfer all times as fully defined time strings <strong>with timezones</strong> in a standardized format (e.g. <a href="https://en.wikipedia.org/?title=ISO_8601" target="_blank" rel="external">ISO 8601</a>).  <strong>Know your application’s</strong> time-wise resolution needs, and adhere to them throughout the app.  Suppose you need <code>second</code> level resolution:</p>
+<ul>
+<li><strong>bad</strong>: ‘10/25/2010’</li>
+<li><strong>bad</strong>: ‘10/25/2010 08:23:22’</li>
+<li><strong>good</strong>: ‘10/25/2010 08:23:22-07’</li>
+<li><strong>good</strong>: ‘10/25/2010 08:23:22.2324-07’ (note timezone offset always included)</li>
+</ul>
+</li>
+<li><p>perform time operations only through utilities that can parse and understand the complete time strings.  avoid manually extracting time components out of strings.</p>
+</li>
+</ul>
+<h2 id="application-date-and-time-oversights"><a href="#application-date-and-time-oversights" class="headerlink" title="application date and time oversights"></a>application <code>date</code> and <code>time</code> oversights</h2><p>We already discussed these above.  Let’s dive a bit deeper.</p>
+<h4 id="time-captured-incompletely"><a href="#time-captured-incompletely" class="headerlink" title="time captured incompletely"></a>time captured incompletely</h4><p>Earlier, we examined computing unix time in the browser, using javascript.<br><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> myDate = <span class="keyword">new</span> <span class="built_in">Date</span>();</div><div class="line">myDate.getTime(); <span class="comment">//=&gt; 1435089516878`</span></div></pre></td></tr></table></figure></p>
+<p>The above is an easy way to get a time.  Let us use this in our app, so long as that time data doesn’t leave this client, or this machine doesn’t change timezones.  Can you assert that your user’s don’t travel?  Can you assert that your time or time calculations won’t be sent somewhere, beyond the client?  If you cannot, sending time in a basic integer format drops critical data.  Specifically, you lose timezone relativity and, in rare cases, a known base-time reference value.  For instance, does that integer reflect the # of seconds from unix-time-start in UTC time, or the # of seconds from unix-time-start, offset for your region?</p>
+<p>You could, as some do, use the above integer time value in conjunction with a timezone string.  However, you’ve introduced generally 1 to 2 steps of extra parse complication on all services consuming your time values, and an unstated assumption that the unix time provided is already aligned with UTC (it generally is).  These are all simple concepts that stack up to be a complicated when you have many services in different languages.  JS (node and browser), for instance, default to milliseconds.  PHP likes seconds.</p>
+<p>Managing this complication is generally unnecessary.  In order to convey a clear, accurate, and complete timestamp, one of which that you can interchange safely across services,  serialize your apps’ and services’ timestamps in a complete string during I/O, and parse via language natives or time helper libraries as required.</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// client makes xhr GET request to server</span></div><div class="line">xhr.get(..., cb);</div><div class="line"></div><div class="line"><span class="comment">// server responds (ex. php DateTime)</span></div><div class="line">$datetime = <span class="keyword">new</span> DateTime(<span class="string">'now'</span>, <span class="keyword">new</span> DateTimeZone(<span class="string">'America/Los_Angeles'</span>));</div><div class="line"><span class="keyword">echo</span> $datetime-&gt;format(<span class="string">'c'</span>); <span class="comment">// 2015-06-24T09:45:06-07:00</span></div><div class="line"> (ISO <span class="number">8601</span>)</div><div class="line"></div><div class="line"><span class="comment">// client parses. (ex. javascript moment.js)</span></div><div class="line"><span class="keyword">var</span> cb = <span class="function"><span class="keyword">function</span><span class="params">(response)</span> </span>&#123;</div><div class="line">    <span class="comment">// response =&gt; 2015-06-24T09:45:06-07:00</span></div><div class="line">    <span class="keyword">var</span> myDate = moment(response);</div><div class="line">    myDate.format(); <span class="comment">// 2015-06-24T09:45:06-07:00</span></div><div class="line">    myDate.toISOString(); <span class="comment">// 2015-06-24T16:45:06.000Z</span></div><div class="line">    <span class="comment">// how refreshing!  all I/O could use `.format()`</span></div><div class="line">    <span class="comment">// as your serialized version, instead of `.toISOString()`</span></div><div class="line">    <span class="comment">// so as to not drop user TZ</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>This example leads us directly to our next topic!</p>
+<h4 id="time-is-transferred-in-varying-formats"><a href="#time-is-transferred-in-varying-formats" class="headerlink" title="time is transferred in varying formats"></a>time is transferred in varying formats</h4><p>Look at your own applications.  How have you shared times between services?  Have you echoed time values directly out of your database?  Have your API’s used programming-language specific formatting functions to make time “look” standard to your liking?</p>
+<p>Apps I have worked in have done all sorts of variants in php:<br><figure class="highlight php"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">echo</span> date(<span class="string">"Ymd"</span>); <span class="comment">// or</span></div><div class="line"><span class="keyword">echo</span> date(DATE_RFC2822); <span class="comment">// or</span></div><div class="line"><span class="keyword">echo</span> date(<span class="string">"Y-m-d H:i:s"</span>); <span class="comment">// very prevalent in codebases i've used</span></div><div class="line"><span class="keyword">echo</span> date(<span class="string">"c"</span>); <span class="comment">// my favorite :), e.g. 2004-02-12T15:19:21+00:00</span></div></pre></td></tr></table></figure></p>
+<p><a href="http://php.net/manual/en/function.date.php" target="_blank" rel="external">date(“c”)?</a></p>
+<p>Use a standard.  8601 is my personal preference.  Using a standard is generally the safest, as most languages have a toolset that can parse and manipulate dates/times from a standardized string.  It is ideal to do date/time I/O in the same string format on <strong>every transfer</strong> to make your interfaces predictable!</p>
+<p>A consideration that <strong>must not be overlooked is whether or not the timestamp serializer normalizes to UTC or not</strong>.  In the server example directly above, we used <code>date(&quot;c&quot;)</code>.  This does <em>not</em> normalize to UTC time.  In the client example, we advised against using <code>myDate.toISOString()</code> in favor of <code>myDate.format()</code>, where <code>.toISOString()</code> normalized to UTC.  Again, all of the above variations are 8601 compliant, but <code>.toISOString()</code> drops user +TZ data.</p>
+<p>It can be OK for servers to send outbound timestamps normalized to UTC time if:</p>
+<ul>
+<li>we have a centralized server model (because we tend to normalize internally against UTC anyway)  AND,</li>
+<li>our client apps/services don’t care about client locale history</li>
+</ul>
+<p>Those are tough bullets to gamble over.  You may have not know how your app or ecosystem will change in time.  In a distributed server model, where server activity also needs to be tracked against other servers, UTC normalization may lead to bad consequences!  <strong>Don’t normalize to UTC if you have rich TZ data to begin with</strong> and there is possibility that you will want to maintain client locale time in any part of your app!</p>
+<h4 id="summary"><a href="#summary" class="headerlink" title="summary"></a>summary</h4><p>It’s easy to drop critical time data.  It’s also very easy to maintain good timestamp data integrity.  When possible,</p>
+<ul>
+<li>clear understanding your app’s timestamp requirements,</li>
+<li>use a timestamp standard,</li>
+<li>avoid time normalization, and</li>
+<li>practice lossless timestamp serialization and parsing.</li>
+</ul>
+<p>These tips will help yield a healthy app and good time intgrity.  It’s a bland topic–thanks for reading!</p>
+<p><a href="http://momentjs.com/" target="_blank" rel="external">moment.js</a><br><br><a href="http://php.net/manual/en/class.datetime.php" target="_blank" rel="external">php DateTime</a><br><br>Note: <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch=Date.parse&amp;list_id=12345854" target="_blank" rel="external">FF bug: Date.parse doesn’t honor valid ISO str</a>, hence moment.js usage for unified x-browser time-parsing experience!</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/" data-id="ciqjslym20005y5w71z9nbizr" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Launching a Console in VMware Web Client on Windows 10, Chrome 42+
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">How to [partially] retreat from a database upgrade</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          
+            <aside id="sidebar">
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recents</h3>
+    <div class="widget recents">
+      <ul>
+        
+          <li>
+            <a href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
+          </li>
+        
+          <li>
+            <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/">Monitoring PostgreSQL Replication Lag with Monit</a>
+          </li>
+        
+          <li>
+            <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/">Launching a Console in VMware Web Client on Windows 10, Chrome 42+</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/24/Managing-Application-Dates-and-Times/">Managing Application Dates and Times</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+</aside>
+          
+        
+      </div>
+      <div id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a></br>
+      &copy; 2016 Dylan Wood<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</div>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+  </div>
+</body>
+</html>

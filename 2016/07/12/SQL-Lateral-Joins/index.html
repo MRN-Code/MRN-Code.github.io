@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>SQL Lateral Joins | MRN-Code</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Recently, I heard about a relatively new (as of 9.3) feature in Postgres called a LATERAL JOIN.  A LATERAL JOIN enables a subquery in the from part of a clause to reference columns from preceding item">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL Lateral Joins">
+<meta property="og:url" content="https://MRN-Code.github.io/2016/07/12/SQL-Lateral-Joins/index.html">
+<meta property="og:site_name" content="MRN-Code">
+<meta property="og:description" content="Recently, I heard about a relatively new (as of 9.3) feature in Postgres called a LATERAL JOIN.  A LATERAL JOIN enables a subquery in the from part of a clause to reference columns from preceding item">
+<meta property="og:updated_time" content="2016-07-12T21:04:55.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SQL Lateral Joins">
+<meta name="twitter:description" content="Recently, I heard about a relatively new (as of 9.3) feature in Postgres called a LATERAL JOIN.  A LATERAL JOIN enables a subquery in the from part of a clause to reference columns from preceding item">
+  
+    <link rel="alternative" href="/atom.xml" title="MRN-Code" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.png">
+  
+  <link href="//fonts.googleapis.com/css?family=Inconsolata:400,700|Open+Sans:700,400" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css">
+  
+
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <div id="header">
+  <div id="header-outer" class="outer">
+    <div id="header-inner" class="inner">
+      <div id="header-title">
+        <h1 id="logo-wrap">
+          <a href="/" id="logo">MRN-Code
+          
+              <span id="subtitle">Technical musings from the MRN NI team</span>
+          
+          </a>
+        </h1>
+      </div>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://MRN-Code.github.io"></form>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="outer">
+        <section id="main"><article id="post-SQL-Lateral-Joins" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2016/07/12/SQL-Lateral-Joins/" class="article-date">
+  <time datetime="2016-07-12T16:44:40.000Z" itemprop="datePublished">2016-07-12</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      SQL Lateral Joins
+    </h1>
+  
+  
+    <a href="/author/dlandis"><h4>Drew Landis</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Recently, I heard about a relatively new (as of 9.3) feature in Postgres called a LATERAL JOIN.  A LATERAL JOIN enables a subquery in the <em>from</em> part of a clause to reference columns from preceding items in the <em>from</em> list (quoted from <a href="https://wiki.postgresql.org/wiki/What%27s_new_in_PostgreSQL_9.3#LATERAL_JOIN" target="_blank" rel="external">here</a>).  Without LATERAL, each subquery is evaluated independently and so cannot cross-reference any other <em>from</em> item (quoted from <a href="https://www.postgresql.org/docs/9.4/static/queries-table-expressions.html" target="_blank" rel="external">here</a>).</p>
+<p>I’ve been looking for a good way to use this feature in our internal code and I finally found one.  In our specific instance, using a LATERAL JOIN sped up a query by an order of magnitude!  However, our example was relatively complex and specific to us, so here is a generic (very contrived) example.</p>
+<h2 id="Setup"><a href="#Setup" class="headerlink" title="Setup:"></a>Setup:</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="comment">-- Create a table with 10 million rows of 6 character random strings of numbers</span></div><div class="line"><span class="comment">-- takes about 30 sec to create</span></div><div class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> rand_table <span class="keyword">AS</span></div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      <span class="keyword">id</span>,</div><div class="line">      <span class="keyword">LPAD</span>(<span class="keyword">FLOOR</span>(RANDOM()*<span class="number">1000000</span>)::<span class="built_in">text</span>, <span class="number">6</span>, <span class="string">'0'</span>) <span class="keyword">AS</span> rand_string</div><div class="line">   <span class="keyword">FROM</span> GENERATE_SERIES(<span class="number">1</span>,<span class="number">10000000</span>) <span class="keyword">id</span>;</div><div class="line"></div><div class="line"><span class="comment">-- Create table with 999,999 rows of 6 character strings of numbers (from 1 to 999,999)</span></div><div class="line"><span class="comment">-- takes about 1 sec to create</span></div><div class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> series_table <span class="keyword">AS</span></div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      <span class="keyword">id</span>,</div><div class="line">      <span class="keyword">LPAD</span>(<span class="keyword">id</span>::<span class="built_in">text</span>, <span class="number">6</span>, <span class="string">'0'</span>) <span class="keyword">AS</span> series</div><div class="line">   <span class="keyword">FROM</span> GENERATE_SERIES(<span class="number">1</span>,<span class="number">999999</span>) <span class="keyword">id</span></div><div class="line"></div><div class="line"><span class="comment">-- Vacuum analyze both tables</span></div><div class="line">VACUUM <span class="keyword">ANALYZE</span> rand_table;</div><div class="line">VACUUM <span class="keyword">ANALYZE</span> series_table;</div></pre></td></tr></table></figure>
+<h2 id="Test"><a href="#Test" class="headerlink" title="Test"></a>Test</h2><p>Let’s count how many instances of <code>&#39;010170&#39;</code> there are in <code>rand_table</code>.  Then we’ll LEFT JOIN that to the <code>series_table</code>.  Like, I said, super contrived…<br><figure class="highlight vbnet"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">SELECT</span></div><div class="line">   st.id <span class="keyword">AS</span> series_id,</div><div class="line">   st.series,</div><div class="line">   rt.count</div><div class="line"><span class="keyword">FROM</span> series_table st</div><div class="line"></div><div class="line">-- Fast query (<span class="keyword">using</span> a LATERAL <span class="keyword">JOIN</span>) ~<span class="number">2</span> seconds</div><div class="line">/*</div><div class="line">LEFT <span class="keyword">JOIN</span> LATERAL (</div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      rand_string,</div><div class="line">      COUNT(rand_string)</div><div class="line">   <span class="keyword">FROM</span> rand_table</div><div class="line">   <span class="keyword">WHERE</span> rand_string = st.series -- this <span class="keyword">is</span> the lateral magic!</div><div class="line">   <span class="keyword">GROUP</span> <span class="keyword">BY</span> rand_string</div><div class="line">) rt <span class="keyword">ON</span> st.series = rt.rand_string</div><div class="line">*/</div><div class="line"></div><div class="line">-- Slow query (<span class="keyword">using</span> a regular <span class="keyword">JOIN</span>) ~<span class="number">10</span> seconds</div><div class="line">/*</div><div class="line">LEFT <span class="keyword">JOIN</span> (</div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      rand_string,</div><div class="line">      COUNT(rand_string)</div><div class="line">   <span class="keyword">FROM</span> rand_table</div><div class="line">   <span class="keyword">GROUP</span> <span class="keyword">BY</span> rand_string</div><div class="line">) rt <span class="keyword">ON</span> st.series = rt.rand_string</div><div class="line">*/</div><div class="line"><span class="keyword">WHERE</span> st.id = <span class="number">10170</span></div></pre></td></tr></table></figure></p>
+<h2 id="Clean-Up"><a href="#Clean-Up" class="headerlink" title="Clean Up"></a>Clean Up</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> rand_table;</div><div class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> series_table;</div></pre></td></tr></table></figure>
+<p>In the slow (LEFT JOIN) query, the subquery is forced to return <em>all</em> data, and then JOIN on that entire result set.  It takes a long time to grab and count the entire result set of the subquery, which considerably increases the overall query time.  In the fast (LEFT JOIN LATERAL) query, the subquery is able to reference the st.series column from a preceding item, and pare down the subquery result set to only include data that will ultimately be JOINed upon.</p>
+<p>As stated, this example is super contrived and there are definitely other ways to rewrite and improve it, but hopefully this will give you the gist of how a LATERAL JOIN should look and function.  Also note, this query speed only improved by about 5 times, however for our internal query, we were able to improve query time by an entire order of magnitude.  Depending where you use LATERAL JOINs, some queries will improve more than others.</p>
+<p>Hope that helps!</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2016/07/12/SQL-Lateral-Joins/" data-id="ciqjslymu0008y5w70vntqzeu" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Monitoring PostgreSQL Replication Lag with Monit</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          
+            <aside id="sidebar">
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recents</h3>
+    <div class="widget recents">
+      <ul>
+        
+          <li>
+            <a href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
+          </li>
+        
+          <li>
+            <a href="/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/">Monitoring PostgreSQL Replication Lag with Monit</a>
+          </li>
+        
+          <li>
+            <a href="/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/">Launching a Console in VMware Web Client on Windows 10, Chrome 42+</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/24/Managing-Application-Dates-and-Times/">Managing Application Dates and Times</a>
+          </li>
+        
+          <li>
+            <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+</aside>
+          
+        
+      </div>
+      <div id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a></br>
+      &copy; 2016 Dylan Wood<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</div>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+  </div>
+</body>
+</html>
