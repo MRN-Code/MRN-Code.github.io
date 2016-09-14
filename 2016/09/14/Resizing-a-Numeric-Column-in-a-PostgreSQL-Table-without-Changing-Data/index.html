@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   
-  <title>MRN-Code</title>
+  <title>Resizing a Numeric Column in a PostgreSQL Table without Changing Data | MRN-Code</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
-<meta property="og:type" content="website">
-<meta property="og:title" content="MRN-Code">
-<meta property="og:url" content="https://MRN-Code.github.io/author/dlandis/index.html">
+  <meta name="description" content="While using PostgreSQL, you may find yourself in a situation where you have a column whose data type is now too small and the length needs to be increased.  Updating a column type in PostgreSQL can, a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Resizing a Numeric Column in a PostgreSQL Table without Changing Data">
+<meta property="og:url" content="https://MRN-Code.github.io/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/index.html">
 <meta property="og:site_name" content="MRN-Code">
-<meta property="og:description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
+<meta property="og:description" content="While using PostgreSQL, you may find yourself in a situation where you have a column whose data type is now too small and the length needs to be increased.  Updating a column type in PostgreSQL can, a">
+<meta property="og:updated_time" content="2016-09-14T20:16:27.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="MRN-Code">
-<meta name="twitter:description" content="The Neuroinformatics team at the Mind Research Network develops the Collaborative Informatics and Neuroimaging Suite (COINS): a web application for managing neuroimaging data. This site will document">
+<meta name="twitter:title" content="Resizing a Numeric Column in a PostgreSQL Table without Changing Data">
+<meta name="twitter:description" content="While using PostgreSQL, you may find yourself in a situation where you have a column whose data type is now too small and the length needs to be increased.  Updating a column type in PostgreSQL can, a">
   
     <link rel="alternative" href="/atom.xml" title="MRN-Code" type="application/atom+xml">
   
@@ -61,9 +62,7 @@
   </div>
 </div>
       <div class="outer">
-        <section id="main">
-  
-    <article id="post-Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data" class="article article-type-post" itemscope itemprop="blogPost">
+        <section id="main"><article id="post-Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
     <a href="/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/" class="article-date">
   <time datetime="2016-09-14T18:02:59.000Z" itemprop="datePublished">2016-09-14</time>
@@ -76,8 +75,8 @@
       <header class="article-header">
         
   
-    <h1 itemprop="name">
-      <a class="article-title" href="/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/">Resizing a Numeric Column in a PostgreSQL Table without Changing Data</a>
+    <h1 class="article-title" itemprop="name">
+      Resizing a Numeric Column in a PostgreSQL Table without Changing Data
     </h1>
   
   
@@ -116,61 +115,20 @@
     </footer>
   </div>
   
-</article>
-
-
-  
-    <article id="post-SQL-Lateral-Joins" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2016/07/12/SQL-Lateral-Joins/" class="article-date">
-  <time datetime="2016-07-12T16:44:40.000Z" itemprop="datePublished">2016-07-12</time>
-</a>
     
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
-    </h1>
+<nav id="article-nav">
   
   
-    <a href="/author/dlandis"><h4>Drew Landis</h4></a>
+    <a href="/2016/07/12/SQL-Lateral-Joins/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">SQL Lateral Joins</div>
+    </a>
   
+</nav>
 
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Recently, I heard about a relatively new (as of 9.3) feature in Postgres called a LATERAL JOIN.  A LATERAL JOIN enables a subquery in the <em>from</em> part of a clause to reference columns from preceding items in the <em>from</em> list (quoted from <a href="https://wiki.postgresql.org/wiki/What%27s_new_in_PostgreSQL_9.3#LATERAL_JOIN" target="_blank" rel="external">here</a>).  Without LATERAL, each subquery is evaluated independently and so cannot cross-reference any other <em>from</em> item (quoted from <a href="https://www.postgresql.org/docs/9.4/static/queries-table-expressions.html" target="_blank" rel="external">here</a>).</p>
-<p>I’ve been looking for a good way to use this feature in our internal code and I finally found one.  In our specific instance, using a LATERAL JOIN sped up a query by an order of magnitude!  However, our example was relatively complex and specific to us, so here is a generic (very contrived) example.</p>
-<h2 id="Setup"><a href="#Setup" class="headerlink" title="Setup:"></a>Setup:</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="comment">-- Create a table with 10 million rows of 6 character random strings of numbers</span></div><div class="line"><span class="comment">-- takes about 30 sec to create</span></div><div class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> rand_table <span class="keyword">AS</span></div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      <span class="keyword">id</span>,</div><div class="line">      <span class="keyword">LPAD</span>(<span class="keyword">FLOOR</span>(RANDOM()*<span class="number">1000000</span>)::<span class="built_in">text</span>, <span class="number">6</span>, <span class="string">'0'</span>) <span class="keyword">AS</span> rand_string</div><div class="line">   <span class="keyword">FROM</span> GENERATE_SERIES(<span class="number">1</span>,<span class="number">10000000</span>) <span class="keyword">id</span>;</div><div class="line"></div><div class="line"><span class="comment">-- Create table with 999,999 rows of 6 character strings of numbers (from 1 to 999,999)</span></div><div class="line"><span class="comment">-- takes about 1 sec to create</span></div><div class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> series_table <span class="keyword">AS</span></div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      <span class="keyword">id</span>,</div><div class="line">      <span class="keyword">LPAD</span>(<span class="keyword">id</span>::<span class="built_in">text</span>, <span class="number">6</span>, <span class="string">'0'</span>) <span class="keyword">AS</span> series</div><div class="line">   <span class="keyword">FROM</span> GENERATE_SERIES(<span class="number">1</span>,<span class="number">999999</span>) <span class="keyword">id</span></div><div class="line"></div><div class="line"><span class="comment">-- Vacuum analyze both tables</span></div><div class="line">VACUUM <span class="keyword">ANALYZE</span> rand_table;</div><div class="line">VACUUM <span class="keyword">ANALYZE</span> series_table;</div></pre></td></tr></table></figure>
-<h2 id="Test"><a href="#Test" class="headerlink" title="Test:"></a>Test:</h2><p>Let’s count how many instances of <code>&#39;010170&#39;</code> there are in <code>rand_table</code>.  Then we’ll LEFT JOIN that to the <code>series_table</code>.  Like, I said, super contrived…<br><figure class="highlight vbnet"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">SELECT</span></div><div class="line">   st.id <span class="keyword">AS</span> series_id,</div><div class="line">   st.series,</div><div class="line">   rt.count</div><div class="line"><span class="keyword">FROM</span> series_table st</div><div class="line"></div><div class="line">-- Fast query (<span class="keyword">using</span> a LATERAL <span class="keyword">JOIN</span>) ~<span class="number">2</span> seconds</div><div class="line">/*</div><div class="line">LEFT <span class="keyword">JOIN</span> LATERAL (</div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      rand_string,</div><div class="line">      COUNT(rand_string)</div><div class="line">   <span class="keyword">FROM</span> rand_table</div><div class="line">   <span class="keyword">WHERE</span> rand_string = st.series -- this <span class="keyword">is</span> the lateral magic!</div><div class="line">   <span class="keyword">GROUP</span> <span class="keyword">BY</span> rand_string</div><div class="line">) rt <span class="keyword">ON</span> st.series = rt.rand_string</div><div class="line">*/</div><div class="line"></div><div class="line">-- Slow query (<span class="keyword">using</span> a regular <span class="keyword">JOIN</span>) ~<span class="number">10</span> seconds</div><div class="line">/*</div><div class="line">LEFT <span class="keyword">JOIN</span> (</div><div class="line">   <span class="keyword">SELECT</span></div><div class="line">      rand_string,</div><div class="line">      COUNT(rand_string)</div><div class="line">   <span class="keyword">FROM</span> rand_table</div><div class="line">   <span class="keyword">GROUP</span> <span class="keyword">BY</span> rand_string</div><div class="line">) rt <span class="keyword">ON</span> st.series = rt.rand_string</div><div class="line">*/</div><div class="line"><span class="keyword">WHERE</span> st.id = <span class="number">10170</span></div></pre></td></tr></table></figure></p>
-<h2 id="Clean-Up"><a href="#Clean-Up" class="headerlink" title="Clean Up:"></a>Clean Up:</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> rand_table;</div><div class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> series_table;</div></pre></td></tr></table></figure>
-<h2 id="Results"><a href="#Results" class="headerlink" title="Results:"></a>Results:</h2><p>The LATERAL JOIN returns results in about 2 seconds, while the regular JOIN takes about 10 seconds.</p>
-<p>In the slow (LEFT JOIN) query, the subquery is forced to return <em>all</em> data, and then JOIN on that entire result set.  It takes a long time to grab and count the entire result set of the subquery, which considerably increases the overall query time.  In the fast (LEFT JOIN LATERAL) query, the subquery is able to reference the st.series column from a preceding item, and pare down the subquery result set to only include data that will ultimately be JOINed upon.</p>
-<p>As stated, this example is super contrived and there are definitely other ways to rewrite and improve it, but hopefully this will give you the gist of how a LATERAL JOIN should look and function.  Also note, this query speed only improved by about 5 times, however for our internal query, we were able to improve query time by an entire order of magnitude.  Depending where you use LATERAL JOINs, some queries will improve more than others.</p>
-<p>Hope that helps!</p>
-<h4 id="Update-July-15-2016"><a href="#Update-July-15-2016" class="headerlink" title="Update (July 15, 2016):"></a>Update (July 15, 2016):</h4><p>I updated the above test so that <code>rand_table</code> has 100 million rows of 7 character numeric strings, and <code>series_table</code> has 9,999,999 rows of 7 character numeric strings, then re-ran the test.  This time, the LATERAL JOIN finished in about 44 seconds and the regular JOIN finished in about 20 minutes and 45 seconds (–&gt; 1,245 seconds).  This means that the LATERAL JOIN completed the query 28 times faster than the regular JOIN!</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2016/07/12/SQL-Lateral-Joins/" data-id="cit3cag5k0005l1edt688akhu" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
   
 </article>
 
-
-  
-  
 </section>
         
           

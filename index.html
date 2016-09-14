@@ -63,6 +63,63 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/" class="article-date">
+  <time datetime="2016-09-14T18:02:59.000Z" itemprop="datePublished">2016-09-14</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/">Resizing a Numeric Column in a PostgreSQL Table without Changing Data</a>
+    </h1>
+  
+  
+    <a href="/author/dlandis"><h4>Drew Landis</h4></a>
+  
+
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>While using PostgreSQL, you may find yourself in a situation where you have a column whose data type is now too small and the length needs to be increased.  Updating a column type in PostgreSQL can, at times, be nothing short of very painful.</p>
+<p>Let’s say you have a column of type <code>varchar(25)</code>.  When you first created the column, you decided there was absolutely no way you could ever need more than 25 characters in that column.  Fast forward months or years later and you now realize that column requires 40 characters.  This would be fine, except that (A) the table is huge - which means it could take a significant amount of time for this command to finish - and (B) there are views and rules that depend on that column - which generates errors when you try the standard <code>ALTER TABLE my_table ALTER COLUMN my_column TYPE varchar(40);</code>.  There is no good solution to (A) other than waiting.  Which may or may not be allowed based on your business needs.  The solution to (B) is painfully manual.  You need to drop all dependent views and rules (e.g. Primary Key, etc), make the column data type change, then recreate all dependent views and rules.  This sucks.</p>
+<p>Luckily, the folks over at <a href="http://sniptools.com" target="_blank" rel="external">sniptools.com</a> solved this exact problem in this <a href="http://sniptools.com/databases/resize-a-column-in-a-postgresql-table-without-changing-data" target="_blank" rel="external">post</a>.  I won’t go into the details (you should look at the post directly), but suffice it to say, I have used their solution multiple times on a production database and it has worked amazingly well.</p>
+<p>Great.  Problem solved.  …Except that now we have the exact same problem with columns of type <code>numeric(precision, scale)</code>.  I have a column of type <code>numeric(2,0)</code> and I really need it to be <code>numeric(4,0)</code>.  I’m running into all of the same problems as the <code>varchar</code> issue above.</p>
+<p>Thankfully, there is a very similar solution!  To demonstrate this, let’s start by creating a fake table of varying numeric types:<br><figure class="highlight lsl"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line">CREATE TABLE my_numeric_test(</div><div class="line">   numeric_one_zero numeric(<span class="number">1</span>,<span class="number">0</span>),</div><div class="line">   numeric_one_one numeric(<span class="number">1</span>,<span class="number">1</span>),</div><div class="line">   numeric_two_zero numeric(<span class="number">2</span>,<span class="number">0</span>),</div><div class="line">   numeric_two_one numeric(<span class="number">2</span>,<span class="number">1</span>),</div><div class="line">   numeric_three_zero numeric(<span class="number">3</span>,<span class="number">0</span>),</div><div class="line">   numeric_three_one numeric(<span class="number">3</span>,<span class="number">1</span>),</div><div class="line">   numeric_four_zero numeric(<span class="number">4</span>,<span class="number">0</span>),</div><div class="line">   numeric_four_one numeric(<span class="number">4</span>,<span class="number">1</span>),</div><div class="line">   numeric_fortyfive_fifteen numeric(<span class="number">45</span>,<span class="number">15</span>),</div><div class="line">   numeric_sixhundredeightythree_threehundred numeric(<span class="number">683</span>,<span class="number">300</span>)</div><div class="line">);</div></pre></td></tr></table></figure></p>
+<p>Next, inspect the <code>atttypmod</code> of the different columns:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">SELECT</span> atttypmod, attname</div><div class="line"><span class="keyword">FROM</span> pg_attribute</div><div class="line"><span class="keyword">WHERE</span> <span class="number">1</span> = <span class="number">1</span></div><div class="line"><span class="keyword">AND</span> attrelid = <span class="string">'my_numeric_test'</span>::regclass</div><div class="line"><span class="keyword">AND</span> attname <span class="keyword">LIKE</span> (<span class="string">'numeric_%'</span>)</div><div class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> atttypmod;</div></pre></td></tr></table></figure></p>
+<p>Notice, there is a pattern here:<br><code>atttypmod</code> = <code>precision</code> * 65,536 + <code>scale</code> + 4</p>
+<p>Let’s say we want to update column <code>numeric_four_zero</code> to have type <code>numeric(9,0)</code>.  A couple of tests:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> my_numeric_test (numeric_four_zero) <span class="keyword">VALUES</span> (<span class="number">1234</span>);  <span class="comment">-- works!</span></div><div class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> my_numeric_test (numeric_four_zero) <span class="keyword">VALUES</span> (<span class="number">123456789</span>);  <span class="comment">-- ERROR:  numeric field overflow</span></div></pre></td></tr></table></figure></p>
+<p>Using the algorithm from above, for <code>numeric(9,0)</code> we see <code>atttypmod</code> = 9 * 65,536 + 0 + 4 = 589,828.  Here is how we can update the column type:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="comment">-- Regular way to update column type (don't use this for this example...)</span></div><div class="line"><span class="comment">--ALTER TABLE my_numeric_test ALTER COLUMN numeric_four_zero TYPE numeric(9,0);</span></div><div class="line"></div><div class="line"><span class="comment">-- Hack way to update column type</span></div><div class="line"><span class="keyword">UPDATE</span> pg_attribute</div><div class="line"><span class="keyword">SET</span> atttypmod = <span class="number">589828</span></div><div class="line"><span class="keyword">WHERE</span> attrelid = <span class="string">'my_numeric_test'</span>::regclass</div><div class="line"><span class="keyword">AND</span> attname = <span class="string">'numeric_four_zero'</span>;</div></pre></td></tr></table></figure></p>
+<p>We can run the same test as above and see that it works:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> my_numeric_test (numeric_four_zero) <span class="keyword">VALUES</span> (<span class="number">123456789</span>);  <span class="comment">-- works!</span></div></pre></td></tr></table></figure></p>
+<p>We can also select the column from the table and see that the column type has changed:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">SELECT</span> * <span class="keyword">FROM</span> my_numeric_test;</div></pre></td></tr></table></figure></p>
+<p>Finally, cleanup:<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">DROP</span> <span class="keyword">TABLE</span> my_numeric_test;</div></pre></td></tr></table></figure></p>
+<p>Warning: I’m not sure if there are any side effects of doing this on your own code.  I <em>think</em> it should work, but give no guarantees implicitly nor explicitly that it will not turn your database into a smoking, ruined heap.</p>
+<p>Again, many thanks to this sniptools <a href="http://sniptools.com/databases/resize-a-column-in-a-postgresql-table-without-changing-data" target="_blank" rel="external">post</a>.  Without them, it would not have been possible.</p>
+<p>Hope that helps!</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://MRN-Code.github.io/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/" data-id="cit3cag5y0007l1eds9bimeki" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/PostgreSQL-Postgres-SQL-Databases/">PostgreSQL, Postgres, SQL, Databases</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-SQL-Lateral-Joins" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
     <a href="/2016/07/12/SQL-Lateral-Joins/" class="article-date">
@@ -103,7 +160,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2016/07/12/SQL-Lateral-Joins/" data-id="ciqoa4n420008nmw79nx3kdco" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2016/07/12/SQL-Lateral-Joins/" data-id="cit3cag5k0005l1edt688akhu" class="article-share-link">Share</a>
       
       
     </footer>
@@ -159,7 +216,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" data-id="ciqoa4n3m0005nmw7legvhiwx" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/12/29/Monitoring-PostgreSQL-Replication-Lag-with-Monit/" data-id="cit3cag67000al1edyxafzj67" class="article-share-link">Share</a>
       
       
   <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/">postgres postgresql monit m/monit monitoring COINS3.0</a></li></ul>
@@ -245,7 +302,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" data-id="ciqoa4n3b0003nmw7cnltno4t" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/07/04/Launch-Console-in-VMWare-Web-Client-on-Windows-10-Chrome-42/" data-id="cit3cag5i0003l1ed7izudy1i" class="article-share-link">Share</a>
       
       
   <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Chrome/">Chrome</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VMware/">VMware</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/vSphere/">vSphere</a></li></ul>
@@ -348,7 +405,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/" data-id="ciqoa4n3z0007nmw7ru5tral0" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/06/24/Managing-Application-Dates-and-Times/" data-id="cit3cag610008l1ed26mrgcxf" class="article-share-link">Share</a>
       
       
     </footer>
@@ -401,7 +458,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/" data-id="ciqoa4n370001nmw7648pdcza" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/" data-id="cit3cag5e0001l1ed48mam6na" class="article-share-link">Share</a>
       
       
     </footer>
@@ -524,7 +581,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/06/13/Standardizing-PostgresSQL-Instances/" data-id="ciqoa4n47000anmw7oguaw5oi" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/06/13/Standardizing-PostgresSQL-Instances/" data-id="cit3cag69000bl1edscqe5cr3" class="article-share-link">Share</a>
       
       
   <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/">postgres postgresql pgbarman pgbouncer COINS3.0</a></li></ul>
@@ -572,7 +629,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://MRN-Code.github.io/2015/06/13/Why-a-blog/" data-id="ciqoa4n49000bnmw7emrjhcfd" class="article-share-link">Share</a>
+      <a data-url="https://MRN-Code.github.io/2015/06/13/Why-a-blog/" data-id="cit3cag6a000cl1ed2yzh50z3" class="article-share-link">Share</a>
       
       
     </footer>
@@ -597,6 +654,10 @@
       <ul>
         
           <li>
+            <a href="/2016/09/14/Resizing-a-Numeric-Column-in-a-PostgreSQL-Table-without-Changing-Data/">Resizing a Numeric Column in a PostgreSQL Table without Changing Data</a>
+          </li>
+        
+          <li>
             <a href="/2016/07/12/SQL-Lateral-Joins/">SQL Lateral Joins</a>
           </li>
         
@@ -612,10 +673,6 @@
             <a href="/2015/06/24/Managing-Application-Dates-and-Times/">Managing Application Dates and Times</a>
           </li>
         
-          <li>
-            <a href="/2015/06/21/How-to-partially-retreat-from-a-database-upgrade/">How to [partially] retreat from a database upgrade</a>
-          </li>
-        
       </ul>
     </div>
   </div>
@@ -625,7 +682,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Tag Cloud</h3>
     <div class="widget tagcloud">
-      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
+      <a href="/tags/Chrome/" style="font-size: 10px;">Chrome</a> <a href="/tags/PostgreSQL-Postgres-SQL-Databases/" style="font-size: 10px;">PostgreSQL, Postgres, SQL, Databases</a> <a href="/tags/VMware/" style="font-size: 10px;">VMware</a> <a href="/tags/postgres-postgresql-monit-m-monit-monitoring-COINS3-0/" style="font-size: 10px;">postgres postgresql monit m/monit monitoring COINS3.0</a> <a href="/tags/postgres-postgresql-pgbarman-pgbouncer-COINS3-0/" style="font-size: 10px;">postgres postgresql pgbarman pgbouncer COINS3.0</a> <a href="/tags/vSphere/" style="font-size: 10px;">vSphere</a>
     </div>
   </div>
 
@@ -634,7 +691,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/09/">September 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/07/">July 2016</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/12/">December 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/07/">July 2015</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/06/">June 2015</a><span class="archive-list-count">4</span></li></ul>
     </div>
   </div>
 
